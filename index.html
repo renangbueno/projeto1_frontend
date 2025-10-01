@@ -1,66 +1,57 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Leitor de QR Code com Vídeo</title>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript">
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  #video-container { position: relative; width: 100%; max-width: 400px; }
-  #reader { width: 100%; }
-  #resultado { margin-top: 20px; font-weight: bold; }
-</style>
+  <meta charset="UTF-8">
+  <title>Leitor de QR Code com Vídeo</title>
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #reader { width: 100%; max-width: 400px; border: 1px solid #ccc; }
+    #resultado { margin-top: 20px; font-weight: bold; }
+  </style>
 </head>
 <body>
-<h2>Escaneie o QR Code</h2>
-
-<div id="video-container">
+  <h2>Escaneie o QR Code</h2>
   <div id="reader"></div>
-</div>
+  <div id="resultado">Aguardando leitura...</div>
 
-<div id="resultado">Aguardando leitura...</div>
+  <script>
+    function onScanSuccess(decodedText, decodedResult) {
+      document.getElementById("resultado").innerHTML = `QR Code lido: ${decodedText}`;
 
-<script>
-  function onScanSuccess(decodedText, decodedResult) {
-    document.getElementById("resultado").innerHTML = `QR Code lido: ${decodedText}`;
-
-    try {
-      const url = new URL(decodedText);
-      const params = new URLSearchParams(url.search);
-      let html = '<h3>Parâmetros:</h3>';
-      for (const [key, value] of params.entries()) {
-        html += `<p>${key}: ${value}</p>`;
+      try {
+        const url = new URL(decodedText);
+        const params = new URLSearchParams(url.search);
+        let html = '<h3>Parâmetros:</h3>';
+        for (const [key, value] of params.entries()) {
+          html += `<p>${key}: ${value}</p>`;
+        }
+        document.getElementById("resultado").innerHTML += html;
+      } catch (e) {
+        console.log("Não é uma URL válida:", e);
       }
-      document.getElementById("resultado").innerHTML += html;
-
-      // Para a câmera depois de ler (opcional)
-      html5QrcodeScanner.clear();
-    } catch(e) {
-      console.log("Não é uma URL válida:", e);
     }
-  }
 
-  const html5QrcodeScanner = new Html5Qrcode("reader");
+    const html5QrCode = new Html5Qrcode("reader");
 
-  // Lista câmeras
-  Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length) {
-      const cameraId = cameras[0].id; // Primeira câmera encontrada
-      html5QrcodeScanner.start(
-        cameraId,
-        { fps: 10, qrbox: 250, aspectRatio: 1.333 }, // mostra vídeo com proporção
-        onScanSuccess
-      ).catch(err => {
-        console.error("Erro ao iniciar a câmera:", err);
-        document.getElementById("resultado").innerHTML = "Não foi possível acessar a câmera.";
-      });
-    } else {
-      document.getElementById("resultado").innerHTML = "Nenhuma câmera encontrada.";
-    }
-  }).catch(err => {
-    console.error("Erro ao listar câmeras:", err);
-    document.getElementById("resultado").innerHTML = "Não foi possível acessar a câmera.";
-  });
-</script>
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length) {
+        const cameraId = cameras[0].id;
+        html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess
+        ).catch(err => {
+          console.error("Erro ao iniciar a câmera:", err);
+          document.getElementById("resultado").innerHTML = "Não foi possível acessar a câmera.";
+        });
+      } else {
+        document.getElementById("resultado").innerHTML = "Nenhuma câmera encontrada.";
+      }
+    }).catch(err => {
+      console.error("Erro ao listar câmeras:", err);
+      document.getElementById("resultado").innerHTML = "Não foi possível acessar a câmera.";
+    });
+  </script>
 </body>
 </html>
