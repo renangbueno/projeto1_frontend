@@ -1,166 +1,63 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Scanner QR</title>
+<meta charset="UTF-8">
+<title>Leitor de QR Code</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
 <style>
-  body{font-family:Arial,sans-serif; margin:12px; display:flex; flex-direction:column; gap:12px; align-items:center}
-  .card{max-width:640px; width:100%; border:1px solid #ddd; padding:12px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.03)}
-  video{width:100%; height:auto; border-radius:8px; background:#000}
-  #controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
-  select,button{padding:8px 12px; border-radius:8px; border:1px solid #ccc; background:white}
-  #resultado{margin-top:10px; word-break:break-word}
-  #preview{max-width:100%; margin-top:8px; border-radius:8px}
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  #reader { width: 100%; max-width: 400px; margin-bottom: 20px; }
+  #resultado { font-weight: bold; }
 </style>
 </head>
 <body>
-<h2>Leitor QR</h2>
-<div class="card">
-  <video id="video" playsinline muted></video>
-  <div id="controls">
-    <select id="cameraSelect"></select>
-    <button id="btnStart">Usar câmera</button>
-    <button id="btnStop" disabled>Parar</button>
-    <button id="btnTorch" disabled>🔦 Flash</button>
-    <button id="btnUpload">📁 Enviar imagem</button>
-  </div>
-  <div id="resultado"><small>Resultado aparecerá aqui</small></div>
-  <img id="preview" alt="" style="display:none"/>
-</div>
-<input id="fileInput" type="file" accept="image/*" style="display:none"/>
+<h2>Escaneie o QR Code</h2>
+<div id="reader"></div>
+<div id="resultado">Aguardando leitura...</div>
 
-<script type="module">
-import QrScanner from 'https://cdn.jsdelivr.net/gh/nimiq/qr-scanner@1.4.2/qr-scanner.min.js';
-QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/gh/nimiq/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+<script>
+  // Função que será chamada quando um QR Code for detectado
+  function onScanSuccess(decodedText, decodedResult) {
+    document.getElementById("resultado").innerHTML = `QR Code lido: ${decodedText}`;
 
-const video = document.getElementById('video');
-const cameraSelect = document.getElementById('cameraSelect');
-const btnStart = document.getElementById('btnStart');
-const btnStop = document.getElementById('btnStop');
-const btnTorch = document.getElementById('btnTorch');
-const btnUpload = document.getElementById('btnUpload');
-const resultado = document.getElementById('resultado');
-const fileInput = document.getElementById('fileInput');
-const preview = document.getElementById('preview');
-
-let qrScanner = null;
-let currentStream = null;
-let currentTrack = null;
-let torchOn = false;
-
-function escapeHtml(str){return (str+'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
-
-function showResult(text){
-  resultado.innerHTML = `<strong>Conteúdo:</strong> ${escapeHtml(text)}`;
-  try{
-    const url = new URL(text);
-    const params = new URLSearchParams(url.search);
-    if([...params].length){
-      let html='<ul>';
-      for(const [k,v] of params.entries()){
-        html+=`<li><strong>${escapeHtml(k)}</strong>: ${escapeHtml(v)}</li>`;
+    // Se for uma URL com parâmetros, extrai e mostra
+    try {
+      const url = new URL(decodedText);
+      const params = new URLSearchParams(url.search);
+      let html = '<h3>Parâmetros:</h3>';
+      for (const [key, value] of params.entries()) {
+        html += `<p>${key}: ${value}</p>`;
       }
-      html+='</ul>';
-      resultado.innerHTML += html;
-    }
-  }catch(e){}
-}
+      document.getElementById("resultado").innerHTML += html;
 
-async function listCameras(){
-  try{
-    const devices = await QrScanner.listCameras(true);
-    cameraSelect.innerHTML='';
-    devices.forEach(d=>{
-      const opt = document.createElement('option');
-      opt.value = d.id;
-      opt.textContent = d.label || `Câmera (${d.id})`;
-      cameraSelect.appendChild(opt);
-    });
-    if(devices.length===0){
-      cameraSelect.innerHTML='<option>Nenhuma câmera detectada</option>';
+      // Opcional: parar a câmera depois de ler
+      html5QrcodeScanner.clear();
+    } catch(e) {
+      console.log("Não é uma URL válida:", e);
     }
-  }catch(e){
-    console.error(e);
-    cameraSelect.innerHTML='<option>Erro ao listar câmeras</option>';
   }
-}
 
-async function startScanner(){
-  if(qrScanner) await stopScanner();
-  const preferredDeviceId = cameraSelect.value || null;
-  qrScanner = new QrScanner(video, result=>{
-    showResult(result);
-    // opcional: parar após leitura
-    // qrScanner.stop();
-  },{
-    preferredCamera: preferredDeviceId||'environment',
-    highlightScanRegion:true,
-    maxScansPerSecond:10
+  // Configuração da câmera
+  let html5QrcodeScanner = new Html5Qrcode("reader");
+
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+      const cameraId = cameras[0].id; // Pega a primeira câmera disponível
+      html5QrcodeScanner.start(
+        cameraId, 
+        { fps: 10, qrbox: 250 }, 
+        onScanSuccess
+      ).catch(err => {
+        console.error("Erro ao iniciar a câmera:", err);
+        document.getElementById("resultado").innerHTML = "Não foi possível acessar a câmera.";
+      });
+    } else {
+      document.getElementById("resultado").innerHTML = "Nenhuma câmera encontrada.";
+    }
+  }).catch(err => {
+    console.error("Erro ao listar câmeras:", err);
+    document.getElementById("resultado").innerHTML = "Não foi possível acessar a câmera.";
   });
-  try{
-    await qrScanner.start();
-    btnStart.disabled=true;
-    btnStop.disabled=false;
-    currentStream = qrScanner.$video.srcObject;
-    currentTrack = currentStream && currentStream.getVideoTracks && currentStream.getVideoTracks()[0];
-    await checkTorchSupport();
-  }catch(e){
-    console.error('Erro ao iniciar scanner:',e);
-    resultado.innerHTML=`<small>Erro ao acessar câmera: ${escapeHtml(String(e))}. Use envio de imagem como fallback.</small>`;
-  }
-}
-
-async function stopScanner(){
-  if(qrScanner){try{await qrScanner.stop()}catch{} qrScanner.destroy(); qrScanner=null;}
-  if(currentStream){currentStream.getTracks().forEach(t=>t.stop()); currentStream=null;}
-  currentTrack=null;
-  btnStart.disabled=false; btnStop.disabled=true; btnTorch.disabled=true; torchOn=false;
-}
-
-async function checkTorchSupport(){
-  btnTorch.disabled=true;
-  if(!currentTrack) return;
-  const caps=currentTrack.getCapabilities?currentTrack.getCapabilities():{};
-  if(caps.torch){btnTorch.disabled=false;}
-}
-
-async function toggleTorch(){
-  if(!currentTrack) return;
-  const caps=currentTrack.getCapabilities?currentTrack.getCapabilities():{};
-  if(!caps.torch){resultado.innerHTML='<small>Flash não suportado neste dispositivo/browser.</small>'; return;}
-  try{
-    torchOn=!torchOn;
-    await currentTrack.applyConstraints({advanced:[{torch:torchOn}]});
-    btnTorch.textContent = torchOn ? '🔦 Flash On' : '🔦 Flash';
-  }catch(e){resultado.innerHTML=`<small>Erro ao alternar flash: ${escapeHtml(String(e))}</small>`;}
-}
-
-btnStart.addEventListener('click',()=>startScanner());
-btnStop.addEventListener('click',()=>stopScanner());
-btnTorch.addEventListener('click',toggleTorch);
-
-// upload fallback
-btnUpload.addEventListener('click',()=>fileInput.click());
-fileInput.addEventListener('change',async ev=>{
-  const file = ev.target.files && ev.target.files[0];
-  if(!file) return;
-  const url = URL.createObjectURL(file);
-  preview.src=url; preview.style.display='block';
-  try{
-    const text = await QrScanner.scanImage(file,{returnDetailedScanResult:false});
-    showResult(text);
-  }catch(e){
-    resultado.innerHTML=`<small>Não foi possível ler o QR da imagem: ${escapeHtml(String(e))}</small>`;
-  }finally{URL.revokeObjectURL(url);}
-});
-
-// trocar câmera
-cameraSelect.addEventListener('change',async()=>{if(qrScanner) await startScanner();});
-
-// inicializa lista de câmeras
-(async()=>{await listCameras();})();
-window.addEventListener('pagehide',stopScanner);
 </script>
 </body>
 </html>
