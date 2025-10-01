@@ -1,62 +1,59 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Leitor de QR Code com Vídeo</title>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-
-        #reader {
-            width: 100%;
-            max-width: 400px;
-            border: 1px solid #ccc;
-        }
-
-        #resultado {
-            margin-top: 20px;
-            font-weight: bold;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Leitor de QR Code em Vídeo</title>
+<script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  video { width: 100%; max-width: 400px; border: 1px solid #ccc; }
+  #resultado { margin-top: 20px; font-weight: bold; white-space: pre-wrap; }
+</style>
 </head>
-
 <body>
-    <h2>Escaneie o QR Code</h2>
-    <div id="reader" width="600px"></div>
+<h2>Escaneie o QR Code</h2>
 
+<video id="video" autoplay playsinline></video>
+<div id="resultado">Aguardando leitura...</div>
 
-    <div id="resultado">Aguardando leitura...</div>
+<script>
+  const videoElement = document.getElementById('video');
+  const resultadoDiv = document.getElementById('resultado');
 
-    <script>
-        function onScanSuccess(decodedText, decodedResult) {
-            // handle the scanned code as you like, for example:
-            console.log(`Code matched = ${decodedText}`, decodedResult);
-        }
+  // Cria uma instância html5-qrcode apontando para um container "virtual"
+  const html5QrCode = new Html5Qrcode(/* element id não usado */ "reader-placeholder");
 
-        function onScanFailure(error) {
-            // handle scan failure, usually better to ignore and keep scanning.
-            // for example:
-            console.warn(`Code scan error = ${error}`);
-        }
+  // Captura câmeras disponíveis
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+      const cameraId = cameras[0].id;
 
-        let html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", {
-                fps: 10,
-                qrbox: {
-                    width: 250,
-                    height: 250
-                }
+      // Inicia o stream da câmera manualmente para mostrar no <video>
+      navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId } })
+        .then(stream => {
+          videoElement.srcObject = stream;
+
+          // Inicia leitura de QR Codes em tempo real
+          html5QrCode.start(
+            cameraId,
+            { fps: 10, qrbox: 250, aspectRatio: 1.333 },
+            decodedText => {
+              resultadoDiv.textContent = decodedText; // mostra o conteúdo do QR
             },
-            /* verbose= */
-            false);
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-
-        
-    </script>
+            errorMessage => {
+              // Pode ignorar erros de leitura momentânea
+            }
+          );
+        })
+        .catch(err => {
+          resultadoDiv.textContent = "Não foi possível acessar a câmera: " + err;
+        });
+    } else {
+      resultadoDiv.textContent = "Nenhuma câmera encontrada.";
+    }
+  }).catch(err => {
+    resultadoDiv.textContent = "Erro ao listar câmeras: " + err;
+  });
+</script>
 </body>
-
 </html>
