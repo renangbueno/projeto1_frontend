@@ -26,7 +26,7 @@
   // Captura câmeras disponíveis
   Html5Qrcode.getCameras().then(cameras => {
     if (cameras && cameras.length) {
-      const cameraId = cameras[0].id;
+      const cameraId = cameras[1].id;
 
       // Inicia o stream da câmera manualmente para mostrar no <video>
       navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId } })
@@ -57,3 +57,4 @@
 </script>
 </body>
 </html>
+
