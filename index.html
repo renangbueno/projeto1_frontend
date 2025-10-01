@@ -2,62 +2,57 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Leitor de QR Code</title>
+<title>Leitor de QR Code em Vídeo</title>
 <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }
-  /* O contêiner de leitura onde a biblioteca irá injetar o vídeo */
-  #reader {
-    width: 100%;
-    max-width: 400px;
-    margin-bottom: 20px;
-  }
+  video { width: 100%; max-width: 400px; border: 1px solid #ccc; }
   #resultado { margin-top: 20px; font-weight: bold; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <h2>Escaneie o QR Code</h2>
 
-<div id="reader"></div>
-
+<video id="video" autoplay playsinline></video>
 <div id="resultado">Aguardando leitura...</div>
 
 <script>
+  const videoElement = document.getElementById('video');
   const resultadoDiv = document.getElementById('resultado');
 
-  // 1. Cria uma instância html5-qrcode apontando para o contêiner 'reader'
-  const html5QrCode = new Html5Qrcode("reader");
+  // Cria uma instância html5-qrcode apontando para um container "virtual"
+  const html5QrCode = new Html5Qrcode(/* element id não usado */ "reader-placeholder");
 
-  // 2. Configura e Inicia o escaneamento
-  const config = {
-    fps: 10, // Frames por segundo para o escaneamento
-    qrbox: 250, // Tamanho da "caixa" de escaneamento
-    aspectRatio: 1.333,
-    // Preferência de câmera. 'environment' prefere a câmera traseira em celulares.
-    facingMode: "environment"
-  };
+  // Captura câmeras disponíveis
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+      const cameraId = cameras[0].id;
 
-  // Inicia o escaneamento (a biblioteca cuida do acesso à câmera e da exibição do vídeo)
-  html5QrCode.start(
-    { facingMode: "environment" }, // Pede para usar a câmera traseira
-    config,
-    decodedText => {
-      // Sucesso na leitura
-      resultadoDiv.textContent = "QR Code lido: " + decodedText;
-      // Opcional: Para o escaneamento após a primeira leitura bem-sucedida
-      // html5QrCode.stop().then(_ => {
-      //   console.log("Escaneamento parado.");
-      // });
-    },
-    errorMessage => {
-      // Erro de escaneamento momentâneo (pode ser ignorado)
-      // console.log(`Erro de escaneamento: ${errorMessage}`);
+      // Inicia o stream da câmera manualmente para mostrar no <video>
+      navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId } })
+        .then(stream => {
+          videoElement.srcObject = stream;
+
+          // Inicia leitura de QR Codes em tempo real
+          html5QrCode.start(
+            cameraId,
+            { fps: 10, qrbox: 250, aspectRatio: 1.333 },
+            decodedText => {
+              resultadoDiv.textContent = decodedText; // mostra o conteúdo do QR
+            },
+            errorMessage => {
+              // Pode ignorar erros de leitura momentânea
+            }
+          );
+        })
+        .catch(err => {
+          resultadoDiv.textContent = "Não foi possível acessar a câmera: " + err;
+        });
+    } else {
+      resultadoDiv.textContent = "Nenhuma câmera encontrada.";
     }
-  )
-  .catch(err => {
-    // Erro ao iniciar a câmera (e.g., permissão negada ou nenhuma câmera)
-    resultadoDiv.textContent = "Não foi possível iniciar o leitor de QR Code: " + err;
-    console.error(err);
+  }).catch(err => {
+    resultadoDiv.textContent = "Erro ao listar câmeras: " + err;
   });
 </script>
 </body>
