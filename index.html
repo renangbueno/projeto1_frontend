@@ -26,7 +26,8 @@
   // Captura câmeras disponíveis
   Html5Qrcode.getCameras().then(cameras => {
     if (cameras && cameras.length) {
-      const cameraId = cameras[0].id;
+      // Seleciona a última câmera, que geralmente é a traseira em dispositivos móveis
+      const cameraId = cameras[cameras.length - 1].id;
 
       // Inicia o stream da câmera manualmente para mostrar no <video>
       navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId } })
