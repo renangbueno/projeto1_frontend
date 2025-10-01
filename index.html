@@ -26,7 +26,10 @@
   // Captura câmeras disponíveis
   Html5Qrcode.getCameras().then(cameras => {
     if (cameras && cameras.length) {
-      const cameraId = cameras[1].id;
+      
+      const cameraId = cameras[0].id;
+      let backCamera = cameras.find(cam => cam.label.toLowerCase().includes('back') || cam.label.toLowerCase().includes('traseira'));
+      if (!backCamera) backCamera = cameras[0]; // fallback se não encontrar
 
       // Inicia o stream da câmera manualmente para mostrar no <video>
       navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId } })
@@ -57,4 +60,5 @@
 </script>
 </body>
 </html>
+
 
