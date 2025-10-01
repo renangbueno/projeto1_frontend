@@ -1,50 +1,249 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RB Motors - Início</title>
-    <link rel="stylesheet" href="styles.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scanner de QR (câmera no site)</title>
+<style>
+  :root{--maxW:640px}
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; margin:12px; display:flex; flex-direction:column; gap:12px; align-items:center}
+  .card{max-width:var(--maxW); width:100%; border:1px solid #e6e6e6; padding:12px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.03)}
+  video{width:100%; height:auto; border-radius:8px; background:#000}
+  #controls{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+  select,button{padding:8px 12px; border-radius:8px; border:1px solid #ccc; background:white}
+  #resultado{margin-top:10px; word-break:break-word}
+  #preview{max-width:100%; margin-top:8px; border-radius:8px}
+  small.note{color:#666}
+</style>
 </head>
-
 <body>
-    <!-- Menu principal -->
-    <header class="cabecalho">
-        <div class="container">
-            <h1>RB Motors</h1>
-            <nav>
-                <ul class="menu">
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="portfolio.html">Portfólio</a></li>
-                    <li><a href="quem-somos.html">Quem Somos</a></li>
-                    <li><a href="trabalhe-conosco.html">Trabalhe Conosco</a></li>
-                    <li><a href="promocoes.html">Promoções</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+  <h2>Leitor QR — usar câmera dentro do site</h2>
 
-    <main>
-        <!-- Banner -->
-        <section class="banner">
-            <img src="imagens/banner.png" alt="Banner da empresa" />
-            <h2>Qualidade e confiança em carros seminovos</h2>
-        </section>
+  <div class="card">
+    <div id="video-container">
+      <video id="video" playsinline muted></video>
+    </div>
 
-        <!-- Sobre -->
-        <section class="container">
-            <h3>Sobre a RB Motors</h3>
-            <p>A RB Motors é uma revendedora de veículos seminovos focada em qualidade, procedência e bom atendimento.
-            </p>
-            <p>Nossos veículos passam por rigorosas revisões antes de chegar até você.</p>
-            <p>Confiança, segurança e transparência são os nossos pilares.</p>
-        </section>
-    </main>
+    <div id="controls">
+      <select id="cameraSelect" aria-label="Escolher câmera"></select>
+      <button id="btnStart">Iniciar</button>
+      <button id="btnStop" disabled>Parar</button>
+      <button id="btnTorch" disabled>🔦 Flash</button>
+      <button id="btnUpload">📁 Enviar imagem</button>
+    </div>
 
-    <footer class="rodape">
-        <p>Renan Bueno - renangbueno@gmail.com</p>
-    </footer>
+    <div id="resultado"><small class="note">Resultado aparecerá aqui.</small></div>
+    <img id="preview" alt="" style="display:none" />
+  </div>
+
+  <input id="fileInput" type="file" accept="image/*" style="display:none">
+
+  <script type="module">
+    import QrScanner from 'https://cdn.jsdelivr.net/gh/nimiq/qr-scanner@1.4.2/qr-scanner.min.js';
+    QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/gh/nimiq/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+
+    const video = document.getElementById('video');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const btnTorch = document.getElementById('btnTorch');
+    const btnUpload = document.getElementById('btnUpload');
+    const resultado = document.getElementById('resultado');
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+
+    let qrScanner = null;
+    let currentStream = null;
+    let currentTrack = null;
+    let torchOn = false;
+
+    async function listCameras() {
+      try {
+        const devices = await QrScanner.listCameras(true); // retorna lista de dispositivos que parecem câmeras
+        cameraSelect.innerHTML = '';
+        // QrScanner.listCameras() devolve array de {id, label}
+        devices.forEach(dev => {
+          const opt = document.createElement('option');
+          opt.value = dev.id;
+          opt.textContent = dev.label || `Câmera (${dev.id})`;
+          cameraSelect.appendChild(opt);
+        });
+        if(devices.length === 0) {
+          cameraSelect.innerHTML = '<option value="">Nenhuma câmera detectada</option>';
+        }
+      } catch (e) {
+        console.error('Erro listando câmeras', e);
+        cameraSelect.innerHTML = '<option value="">Erro ao listar câmeras</option>';
+      }
+    }
+
+    function showResult(text) {
+      resultado.innerHTML = `<strong>Conteúdo:</strong> ${escapeHtml(text)}`;
+      // tenta extrair params se for URL
+      try {
+        const url = new URL(text);
+        const params = new URLSearchParams(url.search);
+        if([...params].length) {
+          let html = '<ul>';
+          for (const [k,v] of params.entries()) {
+            html += `<li><strong>${escapeHtml(k)}</strong>: ${escapeHtml(v)}</li>`;
+          }
+          html += '</ul>';
+          resultado.innerHTML += html;
+        }
+      } catch(e) {
+        // não é URL; ok
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str+'').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    async function startScanner() {
+      // se já tiver um scanner aberto, pare antes
+      if (qrScanner) {
+        await stopScanner();
+      }
+
+      const preferredDeviceId = cameraSelect.value || null;
+      qrScanner = new QrScanner(video, result => {
+        // quando decodificar
+        showResult(result);
+        // opcional: parar automaticamente após leitura:
+        // qrScanner.stop();
+      }, {
+        preferredCamera: preferredDeviceId || 'environment',
+        highlightScanRegion: true,
+        maxScansPerSecond: 10
+      });
+
+      try {
+        await qrScanner.start();
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        // pega o stream interno para controlar torch
+        currentStream = qrScanner.$video.srcObject; // ATT: acesso interno - funciona na versão usada
+        currentTrack = currentStream && currentStream.getVideoTracks && currentStream.getVideoTracks()[0];
+        await checkTorchSupport();
+      } catch (e) {
+        console.error('Erro ao iniciar scanner:', e);
+        resultado.innerHTML = `<small class="note">Erro ao acessar câmera: ${escapeHtml(String(e.message || e))}. Use envio de imagem como fallback.</small>`;
+        // fallback: mostrar botão upload habilitado
+      }
+    }
+
+    async function stopScanner() {
+      if (qrScanner) {
+        try { await qrScanner.stop(); } catch {}
+        qrScanner.destroy();
+        qrScanner = null;
+      }
+      if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+        currentStream = null;
+      }
+      currentTrack = null;
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+      btnTorch.disabled = true;
+      torchOn = false;
+    }
+
+    async function checkTorchSupport() {
+      btnTorch.disabled = true;
+      if (!currentTrack) return;
+      try {
+        const imageCapture = new ImageCapture(currentTrack);
+        const capabilities = await imageCapture.getPhotoCapabilities();
+        // alguns navegadores não usam getPhotoCapabilities, então verificamos track.getCapabilities()
+        const caps = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+        const canTorch = (caps && caps.torch) || (capabilities && (capabilities.torch !== undefined));
+        if (canTorch) {
+          btnTorch.disabled = false;
+        } else {
+          btnTorch.disabled = true;
+        }
+      } catch (e) {
+        // sem suporte
+        btnTorch.disabled = true;
+      }
+    }
+
+    async function toggleTorch() {
+      if (!currentTrack) return;
+      const caps = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+      if (!caps.torch) {
+        resultado.innerHTML = `<small class="note">Flash não suportado neste dispositivo/browser.</small>`;
+        return;
+      }
+      try {
+        torchOn = !torchOn;
+        await currentTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+        btnTorch.textContent = torchOn ? '🔦 Flash On' : '🔦 Flash';
+      } catch (e) {
+        console.error('Erro toggle torch', e);
+        resultado.innerHTML = `<small class="note">Erro ao alternar flash: ${escapeHtml(String(e))}</small>`;
+      }
+    }
+
+    // Upload fallback (decodifica imagem enviada)
+    btnUpload.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.style.display = 'block';
+      try {
+        const text = await QrScanner.scanImage(file, { returnDetailedScanResult: false });
+        showResult(text);
+      } catch (e) {
+        resultado.innerHTML = `<small class="note">Não foi possível ler o QR da imagem: ${escapeHtml(String(e))}</small>`;
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    // drag & drop image quick support on the preview area:
+    preview.addEventListener('dragover', e => e.preventDefault());
+    preview.addEventListener('drop', e => {
+      e.preventDefault();
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) {
+        fileInput.files = e.dataTransfer.files;
+        const evt = new Event('change'); fileInput.dispatchEvent(evt);
+      }
+    });
+
+    // controles
+    btnStart.addEventListener('click', startScanner);
+    btnStop.addEventListener('click', stopScanner);
+    btnTorch.addEventListener('click', toggleTorch);
+
+    // quando trocar camera selecionada, reinicia automaticamente se estiver rodando
+    cameraSelect.addEventListener('change', async () => {
+      if (qrScanner) {
+        await startScanner();
+      }
+    });
+
+    // inicializa lista de câmeras ao carregar
+    (async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        resultado.innerHTML = '<small class="note">Este navegador não suporta seleção de dispositivos.</small>';
+        return;
+      }
+      await listCameras();
+      // tenta selecionar "environment" por padrão
+      const opts = [...cameraSelect.options];
+      const env = opts.find(o => /back|rear|environment/gi.test(o.textContent));
+      if (env) cameraSelect.value = env.value;
+      // dica: para desenvolvimento em localhost, HTTPS não é necessário
+    })();
+
+    // limpa ao sair da página
+    window.addEventListener('pagehide', stopScanner);
+  </script>
 </body>
-
 </html>
