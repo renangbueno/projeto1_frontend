@@ -2,25 +2,28 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Leitor de QR Code</title>
-<script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+<title>Leitor de QR Code com Vídeo</title>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript">
 <style>
   body { font-family: Arial, sans-serif; padding: 20px; }
-  #reader { width: 100%; max-width: 400px; margin-bottom: 20px; }
-  #resultado { font-weight: bold; }
+  #video-container { position: relative; width: 100%; max-width: 400px; }
+  #reader { width: 100%; }
+  #resultado { margin-top: 20px; font-weight: bold; }
 </style>
 </head>
 <body>
 <h2>Escaneie o QR Code</h2>
-<div id="reader"></div>
+
+<div id="video-container">
+  <div id="reader"></div>
+</div>
+
 <div id="resultado">Aguardando leitura...</div>
 
 <script>
-  // Função que será chamada quando um QR Code for detectado
   function onScanSuccess(decodedText, decodedResult) {
     document.getElementById("resultado").innerHTML = `QR Code lido: ${decodedText}`;
 
-    // Se for uma URL com parâmetros, extrai e mostra
     try {
       const url = new URL(decodedText);
       const params = new URLSearchParams(url.search);
@@ -30,22 +33,22 @@
       }
       document.getElementById("resultado").innerHTML += html;
 
-      // Opcional: parar a câmera depois de ler
+      // Para a câmera depois de ler (opcional)
       html5QrcodeScanner.clear();
     } catch(e) {
       console.log("Não é uma URL válida:", e);
     }
   }
 
-  // Configuração da câmera
-  let html5QrcodeScanner = new Html5Qrcode("reader");
+  const html5QrcodeScanner = new Html5Qrcode("reader");
 
+  // Lista câmeras
   Html5Qrcode.getCameras().then(cameras => {
     if (cameras && cameras.length) {
-      const cameraId = cameras[0].id; // Pega a primeira câmera disponível
+      const cameraId = cameras[0].id; // Primeira câmera encontrada
       html5QrcodeScanner.start(
-        cameraId, 
-        { fps: 10, qrbox: 250 }, 
+        cameraId,
+        { fps: 10, qrbox: 250, aspectRatio: 1.333 }, // mostra vídeo com proporção
         onScanSuccess
       ).catch(err => {
         console.error("Erro ao iniciar a câmera:", err);
