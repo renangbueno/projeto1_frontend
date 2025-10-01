@@ -1,60 +1,142 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Leitor de QR Code em Vídeo</title>
-<script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
-<style>
-  body { font-family: Arial, sans-serif; padding: 20px; }
-  video { width: 100%; max-width: 400px; border: 1px solid #ccc; }
-  #resultado { margin-top: 20px; font-weight: bold; white-space: pre-wrap; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitor de QR Code com Controles</title>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Contêiner onde o vídeo e o scanner serão injetados */
+        #reader { 
+            width: 100%; 
+            max-width: 400px; 
+            margin-bottom: 20px; 
+            border: 1px solid #ccc; /* Borda para visualização */
+        }
+        
+        .controles { margin-bottom: 20px; }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        #status { 
+            margin-top: 20px; 
+            padding: 10px; 
+            background-color: #f0f0f0; 
+            border-radius: 5px;
+            font-weight: bold;
+            white-space: pre-wrap; /* Mantém a formatação do texto */
+            text-align: center;
+        }
+        
+        /* Estilos para o status */
+        .status-pronto { color: gray; }
+        .status-lendo { color: green; }
+        .status-erro { color: red; }
+    </style>
 </head>
 <body>
-<h2>Escaneie o QR Code</h2>
+    <h2>Leitor de QR Code com Controles</h2>
 
-<video id="video" autoplay playsinline></video>
-<div id="resultado">Aguardando leitura...</div>
+    <div id="reader"></div>
 
-<script>
-  const videoElement = document.getElementById('video');
-  const resultadoDiv = document.getElementById('resultado');
+    <div class="controles">
+        <button id="iniciarBtn">Iniciar Leitura</button>
+        <button id="pararBtn" disabled>Parar Leitura</button>
+    </div>
 
-  // Cria uma instância html5-qrcode apontando para um container "virtual"
-  const html5QrCode = new Html5Qrcode(/* element id não usado */ "reader-placeholder");
+    <div id="status" class="status-pronto">Pronto. Clique em Iniciar Leitura.</div>
 
-  // Captura câmeras disponíveis
-  Html5Qrcode.getCameras().then(cameras => {
-    if (cameras && cameras.length) {
-      // Seleciona a última câmera, que geralmente é a traseira em dispositivos móveis
-      const cameraId = cameras[cameras.length - 1].id;
+    <script>
+        const readerId = "reader";
+        const statusDiv = document.getElementById('status');
+        const iniciarBtn = document.getElementById('iniciarBtn');
+        const pararBtn = document.getElementById('pararBtn');
 
-      // Inicia o stream da câmera manualmente para mostrar no <video>
-      navigator.mediaDevices.getUserMedia({ video: { deviceId: cameraId } })
-        .then(stream => {
-          videoElement.srcObject = stream;
+        // Cria uma instância da biblioteca
+        const html5QrCode = new Html5Qrcode(readerId);
 
-          // Inicia leitura de QR Codes em tempo real
-          html5QrCode.start(
-            cameraId,
-            { fps: 10, qrbox: 250, aspectRatio: 1.333 },
-            decodedText => {
-              resultadoDiv.textContent = decodedText; // mostra o conteúdo do QR
-            },
-            errorMessage => {
-              // Pode ignorar erros de leitura momentânea
+        // Configuração do scanner
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }, // Define o tamanho da caixa de escaneamento
+            // Preferimos a câmera traseira em dispositivos móveis
+            facingMode: "environment" 
+        };
+
+        // --- Funções de Controle ---
+
+        /**
+         * Atualiza o texto e a cor do status.
+         * @param {string} text - O texto a ser exibido.
+         * @param {string} className - A classe CSS de estilo (e.g., 'status-lendo').
+         */
+        function updateStatus(text, className) {
+            statusDiv.textContent = text;
+            statusDiv.className = className;
+        }
+
+        /** Inicia o processo de escaneamento */
+        function iniciarLeitura() {
+            updateStatus("Iniciando câmera...", 'status-lendo');
+            iniciarBtn.disabled = true;
+            pararBtn.disabled = false;
+
+            html5QrCode.start(
+                { facingMode: "environment" }, // Usa a câmera traseira
+                config,
+                // Callback de Sucesso (QR Code encontrado)
+                (decodedText, result) => {
+                    updateStatus("QR Code LIDO! Conteúdo: \n" + decodedText, 'status-lendo');
+                    // Opcional: Para a leitura após o primeiro sucesso
+                    // pararLeitura(); 
+                },
+                // Callback de Erro (Erro de escaneamento momentâneo)
+                (errorMessage) => {
+                    // console.log(`Tentando ler: ${errorMessage}`);
+                    updateStatus("Escaneando... Aponte para um QR Code.", 'status-lendo');
+                }
+            )
+            .catch(err => {
+                // Erro fatal (Permissão negada, nenhuma câmera encontrada, etc.)
+                updateStatus("ERRO: Não foi possível iniciar a câmera. Verifique as permissões ou se há câmeras disponíveis. Detalhe: " + err, 'status-erro');
+                iniciarBtn.disabled = false;
+                pararBtn.disabled = true;
+            });
+        }
+
+        /** Para o processo de escaneamento */
+        function pararLeitura() {
+            if (html5QrCode.isScanning) {
+                html5QrCode.stop()
+                    .then(ignore => {
+                        updateStatus("Leitura Parada. Clique em Iniciar para recomeçar.", 'status-pronto');
+                        iniciarBtn.disabled = false;
+                        pararBtn.disabled = true;
+                    })
+                    .catch(err => {
+                        updateStatus("ERRO ao parar o scanner: " + err, 'status-erro');
+                    });
+            } else {
+                 updateStatus("O scanner não está ativo.", 'status-pronto');
+                 iniciarBtn.disabled = false;
+                 pararBtn.disabled = true;
             }
-          );
-        })
-        .catch(err => {
-          resultadoDiv.textContent = "Não foi possível acessar a câmera: " + err;
-        });
-    } else {
-      resultadoDiv.textContent = "Nenhuma câmera encontrada.";
-    }
-  }).catch(err => {
-    resultadoDiv.textContent = "Erro ao listar câmeras: " + err;
-  });
-</script>
+        }
+
+        // --- Event Listeners para os Botões ---
+        iniciarBtn.addEventListener('click', iniciarLeitura);
+        pararBtn.addEventListener('click', pararLeitura);
+
+        // Opcional: Tenta iniciar a leitura automaticamente ao carregar
+        // window.onload = iniciarLeitura;
+
+    </script>
 </body>
 </html>
