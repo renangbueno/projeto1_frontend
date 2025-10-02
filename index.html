@@ -107,6 +107,8 @@
             color: #444;
             max-height: 150px;
             overflow-y: auto;
+            white-space: pre-line;
+            /* preserva \n */
         }
 
         .modal-buttons {
@@ -178,14 +180,18 @@
         };
 
         function formatJSONPretty(data) {
-            let html = '';
+            const container = document.createElement('div'); // container temporário
             for (let key in data) {
                 const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 let value = data[key];
                 if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
-                html += `<div><strong>${label}:</strong> ${value}</div>`;
+
+                const p = document.createElement('p'); // cada campo em um <p>
+                p.textContent = `${label}: ${value}`;
+                p.style.margin = '4px 0'; // espaço entre linhas
+                container.appendChild(p);
             }
-            return html;
+            return container.innerHTML;
         }
 
 
@@ -204,14 +210,21 @@
         };
 
         function showModal(data) {
-            document.getElementById("modal-data").innerHTML = formatJSONPretty(data);
+            // document.getElementById("modal-data").innerHTML = formatJSONPretty(data);
             // document.getElementById("modal-data").textContent = JSON.stringify(data, null, 2);
+            // document.getElementById("modal").classList.add("active");
+
+            const modalData = document.getElementById("modal-data");
+            modalData.innerHTML = formatJSONPretty(data);
+            document.getElementById("modal").style.display = 'block';
             document.getElementById("modal").classList.add("active");
         }
 
-        function closeModal(data) {
-            document.getElementById("modal-data").textContent = '';
+        function closeModal() {
             document.getElementById("modal").classList.remove("active");
+            setTimeout(() => {
+                document.getElementById("modal").style.display = 'none';
+            }, 300); // espera animação
         }
 
         function updateStatus(text, className) {
