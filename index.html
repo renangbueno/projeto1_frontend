@@ -107,8 +107,6 @@
             color: #444;
             max-height: 150px;
             overflow-y: auto;
-            white-space: pre-line; /* mantém as quebras de linha */
-            font-family: monospace; /* opcional, fica estilo console */
         }
 
         .modal-buttons {
@@ -191,21 +189,10 @@
          * @param {string} text - O texto a ser exibido.
          * @param {string} className - A classe CSS de estilo (e.g., 'status-lendo').
          */
-
-        function formatJSONSimple(data) {
-            return Object.entries(data)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join("\n");
-        }
-
         function showModal(data) {
-            document.getElementById("modal-data").textContent = formatJSONSimple(data);
-
-            // document.getElementById("modal-data").textContent = JSON.stringify(data, null, 2);
+            document.getElementById("modal-data").textContent = JSON.stringify(data, null, 2);
             document.getElementById("modal").classList.add("active");
         }
-
-
 
         function updateStatus(text, className) {
             statusDiv.textContent = text;
