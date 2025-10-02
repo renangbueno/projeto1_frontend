@@ -180,14 +180,10 @@
         function formatJSONPretty(data) {
             let html = '';
             for (let key in data) {
-                // Transforma nomes de chaves para algo legível
                 const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 let value = data[key];
-
-                // Se for boolean, mostra "Sim"/"Não"
                 if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
-
-                html += `<div><span class="label">${label}:</span><span class="value">${value}</span></div>`;
+                html += `<div><strong>${label}:</strong> ${value}</div>`;
             }
             return html;
         }
