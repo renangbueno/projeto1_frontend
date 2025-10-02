@@ -179,22 +179,6 @@
             transporte: false
         };
 
-        function formatJSONPretty(data) {
-            const container = document.createElement('div'); // container temporário
-            for (let key in data) {
-                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                let value = data[key];
-                if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
-
-                const p = document.createElement('p'); // cada campo em um <p>
-                p.textContent = `${label}: ${value}`;
-                p.style.margin = '4px 0'; // espaço entre linhas
-                container.appendChild(p);
-            }
-            return container.innerHTML;
-        }
-
-
         // Cria uma instância da biblioteca
         const html5QrCode = new Html5Qrcode(readerId);
 
@@ -208,6 +192,42 @@
             // Preferimos a câmera traseira em dispositivos móveis
             facingMode: "environment"
         };
+
+        function formatJSONPretty(json) {
+            // Se for string, tenta converter para objeto
+            let obj = typeof json === "string" ? JSON.parse(json) : json;
+
+            // Cria uma div principal
+            const container = document.createElement("div");
+            container.style.fontFamily = "Arial, sans-serif";
+            container.style.fontSize = "14px";
+            container.style.lineHeight = "1.4";
+
+            // Função recursiva para formatar objetos
+            function createList(obj) {
+                const ul = document.createElement("ul");
+                ul.style.listStyle = "none";
+                ul.style.paddingLeft = "15px";
+
+                for (const key in obj) {
+                    const li = document.createElement("li");
+                    const value = obj[key];
+
+                    if (typeof value === "object" && value !== null) {
+                        li.innerHTML = `<strong>${key}:</strong>`;
+                        li.appendChild(createList(value));
+                    } else {
+                        li.innerHTML = `<strong>${key}:</strong> ${value}`;
+                    }
+
+                    ul.appendChild(li);
+                }
+                return ul;
+            }
+
+            container.appendChild(createList(obj));
+            return container.innerHTML;
+        }
 
         function showModal(data) {
             // document.getElementById("modal-data").innerHTML = formatJSONPretty(data);
