@@ -151,11 +151,11 @@
         <button id="iniciarBtn">Iniciar Leitura</button>
         <button id="pararBtn" disabled>Parar Leitura</button>
     </div>
-        <button onclick="showModal(jsonRecebido);"></button>
+    <button onclick="showModal(jsonRecebido);"></button>
     <div id="status" class="status-pronto">Pronto. Clique em Iniciar Leitura.</div>
 
     <div id="modal">
-        <div class="modal-header">Dados recebidos:</div>
+        <div class="modal-header">Confirmar convidado</div>
         <pre id="modal-data"></pre>
         <div class="modal-buttons">
             <button class="approve" onclick="sendDecision('approve')">✅ APROVAR</button>
@@ -167,12 +167,6 @@
         const statusDiv = document.getElementById('status');
         const iniciarBtn = document.getElementById('iniciarBtn');
         const pararBtn = document.getElementById('pararBtn');
-        const jsonRecebido = {
-            id: 123,
-            nome: "João Silva",
-            pedido: "Teste",
-            valor: 4500.00
-        };
 
         // Cria uma instância da biblioteca
         const html5QrCode = new Html5Qrcode(readerId);
@@ -196,11 +190,20 @@
          * @param {string} className - A classe CSS de estilo (e.g., 'status-lendo').
          */
         function showModal(data) {
-            document.getElementById("modal-data").textContent = JSON.stringify(data, null, 2);
+            document.getElementById("modal-data").textContent = formatJSONSimple(data);
+
+            // document.getElementById("modal-data").textContent = JSON.stringify(data, null, 2);
             document.getElementById("modal").classList.add("active");
         }
 
-        
+        function formatJSONSimple(data) {
+            return Object.entries(data)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join("\n");
+        }
+
+
+
 
         function updateStatus(text, className) {
             statusDiv.textContent = text;
